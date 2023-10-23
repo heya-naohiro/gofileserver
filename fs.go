@@ -184,6 +184,11 @@ func (d dirEntryDirs) len() int          { return len(d) }
 func (d dirEntryDirs) isDir(i int) bool  { return d[i].IsDir() }
 func (d dirEntryDirs) name(i int) string { return d[i].Name() }
 
+type PageView struct {
+	ViewD       []ViewDirectory
+	CurrentPath string
+}
+
 // naohiro-heya
 type ViewDirectory struct {
 	Name string
@@ -228,7 +233,12 @@ func dirList(w http.ResponseWriter, r *http.Request, f File) {
 		//fmt.Fprintf(w, "<a href=\"%s\">%s peace</a>\n", url.String(), htmlReplacer.Replace(name))
 		viewds = append(viewds, ViewDirectory{htmlReplacer.Replace(name), url.String()})
 	}
-	if err := templates["fileviewer"].Execute(w, viewds); err != nil {
+	fmt.Println("HLLLOWORLD")
+	fmt.Println(r.URL.RawPath)
+	fmt.Println(string(r.URL.Path))
+	pv := PageView{viewds, string(r.URL.Path)}
+
+	if err := templates["fileviewer"].Execute(w, pv); err != nil {
 		log.Printf("template execute error %v\n", err)
 		http.Error(w, "Error reading directory", http.StatusInternalServerError)
 		return

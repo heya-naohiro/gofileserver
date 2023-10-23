@@ -2,14 +2,15 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>File Server</title>
+    <title>File Server {{.CurrentPath}}</title>
   </head>
   <body>
+    <h1>{{.CurrentPath}}</h1>
     <table>
       <tr>
         <th>name</th>
       </tr>
-      {{range .}}
+      {{range .ViewD}}
       <tr>
         <td><a href="{{ .Url }}">{{ .Name }}</a></td>
       </tr>
@@ -17,5 +18,10 @@
         {{ end }}
       </tr>
     </table>
+
+    <form method="post" action="/upload{{ .CurrentPath }}" enctype="multipart/form-data">
+      <input type="file" name="uploadfile">
+      <input type="submit">
+    </form>
   </body>
 </html>
