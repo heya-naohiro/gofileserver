@@ -129,24 +129,6 @@ func (d Dir) Open(name string) (File, error) {
 	return f, nil
 }
 
-// Open implements FileSystem using os.Open, opening files for reading rooted
-// and relative to the directory d.
-func (d Dir) Open2(name string) (File, error) {
-	if filepath.Separator != '/' && strings.ContainsRune(name, filepath.Separator) {
-		return nil, errors.New("http: invalid character in file path")
-	}
-	dir := string(d)
-	if dir == "" {
-		dir = "."
-	}
-	fullName := filepath.Join(dir, filepath.FromSlash(path.Clean("/"+name)))
-	f, err := os.Open(fullName)
-	if err != nil {
-		return nil, mapOpenError(err, fullName, filepath.Separator, os.Stat)
-	}
-	return f, nil
-}
-
 // A FileSystem implements access to a collection of named files.
 // The elements in a file path are separated by slash ('/', U+002F)
 // characters, regardless of host operating system convention.
@@ -674,16 +656,19 @@ func serveUpload(w http.ResponseWriter, r *http.Request, name string) {
 		return
 	}
 	defer file.Close()
+
 	basename := filepath.Base(header.Filename)
-	path := filepath.Join(name, basename)
+	path := filepath.Join("public", name, basename)
 	fmt.Println("----")
 	fmt.Println(path)
 	if f, err := os.Stat(path); !os.IsNotExist(err) && f.IsDir() {
 		http.Error(w, fmt.Sprintf("Directory Exist: %s", err), 500)
+		return
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("FileOpenError %s", err), 500)
+		return
 	}
 	defer file.Close()
 	io.Copy(f, file)
@@ -692,9 +677,6 @@ func serveUpload(w http.ResponseWriter, r *http.Request, name string) {
 
 // name is '/'-separated, not filepath.Separator.
 func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name string, redirect bool) {
-	if r.Method == "POST" {
-		serveUpload(w, r, name)
-	}
 
 	const indexPage = "/index.html"
 	// redirect .../index.html to .../
@@ -717,6 +699,13 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name strin
 	if err != nil {
 		msg, code := toHTTPError(err)
 		http.Error(w, msg, code)
+		return
+	}
+
+	if r.Method == "POST" {
+		fmt.Println("directory")
+		serveUpload(w, r, r.URL.Path)
+		localRedirect(w, r, "./")
 		return
 	}
 
