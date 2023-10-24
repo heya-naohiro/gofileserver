@@ -1,4 +1,8 @@
 /*
+Copyright (c) 2023 Naohiro Heya
+*/
+
+/*
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -233,9 +237,6 @@ func dirList(w http.ResponseWriter, r *http.Request, f File) {
 		//fmt.Fprintf(w, "<a href=\"%s\">%s peace</a>\n", url.String(), htmlReplacer.Replace(name))
 		viewds = append(viewds, ViewDirectory{htmlReplacer.Replace(name), url.String()})
 	}
-	fmt.Println("HLLLOWORLD")
-	fmt.Println(r.URL.RawPath)
-	fmt.Println(string(r.URL.Path))
 	pv := PageView{viewds, string(r.URL.Path)}
 
 	if err := templates["fileviewer"].Execute(w, pv); err != nil {
@@ -666,10 +667,36 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, modtime time.Tim
 	return false, rangeHeader
 }
 
+func serveUpload(w http.ResponseWriter, r *http.Request, name string) {
+	file, header, err := r.FormFile("uploadfile")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("FormFile Error: %s", err), 500)
+		return
+	}
+	defer file.Close()
+	basename := filepath.Base(header.Filename)
+	path := filepath.Join(name, basename)
+	fmt.Println("----")
+	fmt.Println(path)
+	if f, err := os.Stat(path); !os.IsNotExist(err) && f.IsDir() {
+		http.Error(w, fmt.Sprintf("Directory Exist: %s", err), 500)
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("FileOpenError %s", err), 500)
+	}
+	defer file.Close()
+	io.Copy(f, file)
+	fmt.Fprintf(w, "Upload Success")
+}
+
 // name is '/'-separated, not filepath.Separator.
 func serveFile(w http.ResponseWriter, r *http.Request, fs FileSystem, name string, redirect bool) {
-	const indexPage = "/index.html"
+	if r.Method == "POST" {
+		serveUpload(w, r, name)
+	}
 
+	const indexPage = "/index.html"
 	// redirect .../index.html to .../
 	// can't use Redirect() because that would make the path absolute,
 	// which would be a problem running under StripPrefix
